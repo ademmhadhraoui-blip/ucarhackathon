@@ -1,0 +1,26 @@
+# Core Frameworks
+streamlit
+fastapi
+uvicorn
+
+# Data Science & Visualization
+pandas
+plotly
+openpyxl
+
+# Database
+sqlalchemy
+
+# Utilities & Networking
+requests
+python-dotenv
+python-multipart
+pydantic
+schedule
+
+# Document Processing (OCR)
+pymupdf
+
+# Optional but recommended for production
+gunicorn
+uvloop

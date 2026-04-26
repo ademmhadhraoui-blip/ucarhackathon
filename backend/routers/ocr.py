@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend import crud, database
 from backend.models import RoleEnum
 from backend.services.pdf_ocr_service import extract_pdf_to_json, get_primary_method
+from backend.services.ai_service import analyze_document_with_ai
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
 
@@ -238,28 +239,46 @@ async def upload_and_extract(
     )
 
     # ─────────────────────────────────────────────────────────────────
-    # Analyse locale du JSON → extraction des données financières
+    # Analyse IA (OpenRouter) vs Analyse Locale
     # ─────────────────────────────────────────────────────────────────
     financial_request_created = None
     extraction_info = {}
+    ai_extraction = {}
 
     if extraction_status == "success":
+        print(f"[OCR] Analyse IA du fichier JSON '{safe_filename}'...")
+        ai_extraction = analyze_document_with_ai(json_data)
+        
         print(f"[OCR] Analyse locale du fichier JSON '{safe_filename}'...")
-
         extraction_info = extract_financial_info_locally(json_data, safe_filename)
-        budget = extraction_info.get("budget")
+        
+        # Préférer les résultats de l'IA si disponibles et valides
+        final_data = extraction_info.copy()
+        if "error" not in ai_extraction:
+            print("[OCR] Fusion des résultats : Priorité à l'IA")
+            final_data.update({
+                "budget": ai_extraction.get("amount") or extraction_info.get("budget"),
+                "title": ai_extraction.get("title") or extraction_info.get("title"),
+                "department": ai_extraction.get("department") or extraction_info.get("department"),
+                "type": ai_extraction.get("type") or extraction_info.get("type"),
+                "requested_by": ai_extraction.get("requestedBy") or extraction_info.get("requested_by"),
+                "description": ai_extraction.get("description") or extraction_info.get("description")
+            })
+
+        budget = final_data.get("budget")
 
         if budget is not None:
             try:
                 user_name = user.fullName if user else f"User {user_id}"
                 new_req = crud.create_financial_request_from_ocr(
                     db=db,
-                    title=extraction_info.get("title") or f"Demande OCR — {safe_filename}",
+                    title=final_data.get("title") or f"Demande OCR — {safe_filename}",
                     amount=float(budget),
-                    requestedBy=extraction_info.get("requested_by") or user_name,
-                    department=extraction_info.get("department") or "Inconnu (OCR)",
-                    description=extraction_info.get("description"),
-                    request_type=extraction_info.get("type")
+                    requestedBy=final_data.get("requested_by") or user_name,
+                    department=final_data.get("department") or "Inconnu (OCR)",
+                    description=final_data.get("description"),
+                    request_type=final_data.get("type"),
+                    institution_id=user.institution_id if user else None
                 )
 
                 financial_request_created = {
@@ -337,6 +356,7 @@ async def upload_and_extract(
         "json_data": json_data,
         "financial_request": financial_request_created,
         "extraction_info": extraction_info,
+        "grok_extraction": ai_extraction, # Alias for frontend compatibility
         "lab_updated": lab_updated
     }
 

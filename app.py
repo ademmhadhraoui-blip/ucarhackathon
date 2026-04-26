@@ -1,4 +1,4 @@
-﻿import streamlit as st
+import streamlit as st
 import pandas as pd
 import json
 import plotly.express as px
@@ -72,9 +72,9 @@ def fetch_the_global_averages():
     except Exception as e:
         return None
 
-# Grok API Configurations (loaded from .env)
-GROK_API_KEY = os.getenv("GROK_API_KEY", "")
-GROK_API_URL = os.getenv("GROK_API_URL", "https://api.x.ai/v1/chat/completions")
+# AI Service Configurations (OpenRouter)
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_API_URL = os.getenv("OPENROUTER_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 
 # Configuration
 st.set_page_config(
@@ -1172,8 +1172,8 @@ with tabs[6]:
     
     question = st.text_input("Enter strategic parameter query or objective:", placeholder="E.g., Detail the faculty capability gaps associated with high-risk accreditations.")
     
-    # Helper function to call Grok API
-    def ask_grok(prompt):
+    # Helper function to call AI via OpenRouter
+    def ask_ai(prompt):
         # We supply the loaded data directly as context
         context_data = df[['name', 'employability_rate', 'accreditation_status', 'programs_at_risk', 'research_score', 'success_rate', 'repetition_rate', 'recruitment_needs', 'professor_competencies']].to_dict(orient="records")
         system_prompt = (
@@ -1184,21 +1184,20 @@ with tabs[6]:
         
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {GROK_API_KEY}"
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}"
         }
         
         payload = {
-            "model": "grok-3",
+            "model": "google/gemini-2.0-flash-001",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
             ],
-            "temperature": 0.2,
-            "tools": [{"type": "web_search"}]
+            "temperature": 0.2
         }
         
         try:
-            response = requests.post(GROK_API_URL, headers=headers, json=payload)
+            response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
             response.raise_for_status()
             result = response.json()
             return result['choices'][0]['message']['content']
@@ -1208,7 +1207,7 @@ with tabs[6]:
     if st.button("Execute Diagnostic Query"):
         if question:
             with st.spinner("Processing network variables..."):
-                answer = ask_grok(question)
+                answer = ask_ai(question)
                 st.info(answer)
         else:
             st.warning("Query missing. Input parameter required.")

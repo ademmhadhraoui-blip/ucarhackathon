@@ -17,11 +17,11 @@ try:
 except ImportError:
     print("Please 'pip install requests'")
 
-GROK_API_KEY = os.getenv("GROK_API_KEY", "")
-GROK_API_URL = os.getenv("GROK_API_URL", "https://api.x.ai/v1/chat/completions")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
+OPENROUTER_API_URL = os.getenv("OPENROUTER_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 
-def analyze_changes_with_grok(old_data, new_data):
-    """Call Grok to analyze what changed"""
+def analyze_changes_with_ai(old_data, new_data):
+    """Call OpenRouter (Gemini) to analyze what changed"""
     system_prompt = (
         "You are an executive-level strategic AI analyst for the Board of the University of Carthage (UCAR). "
         "Your task is to analyze changes in the weekly scraped university rankings from Times Higher Education. "
@@ -36,11 +36,11 @@ def analyze_changes_with_grok(old_data, new_data):
     
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {GROK_API_KEY}"
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}"
     }
     
     payload = {
-        "model": "grok-3",
+        "model": "google/gemini-2.0-flash-001",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt}
@@ -49,14 +49,14 @@ def analyze_changes_with_grok(old_data, new_data):
     }
     
     try:
-        response = requests.post(GROK_API_URL, headers=headers, json=payload)
+        response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
         response.raise_for_status()
         result = response.json()
-        print("\n=== GROK ANALYSIS ===")
+        print("\n=== STRATEGIC AI ANALYSIS ===")
         print(result['choices'][0]['message']['content'])
-        print("=====================\n")
+        print("=============================\n")
     except Exception as e:
-        print(f"Grok API Error: {str(e)}")
+        print(f"OpenRouter API Error: {str(e)}")
 
 def fetch_and_extract_rankings():
     url = "https://www.timeshighereducation.com/world-university-rankings/university-carthage"
@@ -216,8 +216,8 @@ def fetch_and_extract_rankings():
     if old_data:
         # Compare actual rankings string representation
         if json.dumps(old_data.get('rankings'), sort_keys=True) != json.dumps(final_output['rankings'], sort_keys=True):
-            print("Changes detected! Sending to Grok for analysis...")
-            analyze_changes_with_grok(old_data, final_output)
+            print("Changes detected! Sending to AI for analysis...")
+            analyze_changes_with_ai(old_data, final_output)
         else:
             print("No changes in the data since the last check.")
     
